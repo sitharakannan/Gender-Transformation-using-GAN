@@ -13,6 +13,9 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 
+LongTensor = torch.cuda.LongTensor if torch.cuda.is_available() else torch.LongTensor
+FloatTensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+
 class Solver(object):
     """Solver for training and testing StarGAN."""
 
@@ -136,7 +139,12 @@ class Solver(object):
         dydx_l2norm = torch.sqrt(torch.sum(dydx**2, dim=1))
         return torch.mean((dydx_l2norm-1)**2)
 
-    
+    def to_categorical(self, y, num_columns):
+        """Returns one-hot encoded Variable"""
+        y_cat = np.zeros((y.shape[0], num_columns))
+        y_cat[range(y.shape[0]), y] = 1.0
+        return Variable(FloatTensor(y_cat))
+
     def create_labels(self, c_org, c_dim=5, dataset='CelebA', selected_attrs=None, mode='train'):
         """Generate target domain labels for debugging and testing."""
         c_trg_list = []
@@ -180,6 +188,7 @@ class Solver(object):
         i=0
         c_trg = c_org.clone()
         c_trg[:, i] = (c_trg[:, i] == 0)  # Reverse attribute value.
+        c_trg = self.to_categorical(c_trg.type(LongTensor).view(-1), c_dim)
         c_trg_list.append(c_trg.to(self.device))
         #print('c_org',c_org)												Reverses the original labels, for Male
         #print('c_trg_list',c_trg_list)
@@ -246,7 +255,13 @@ class Solver(object):
 			
             label_trg = label_org.clone()
             label_trg[:, 0] = (label_org[:, 0] == 0)
-			
+
+            label_org = label_org.type(LongTensor).view(-1)   # Labels for computing classification loss.
+            label_trg = label_trg.type(LongTensor).view(-1)     # Labels for computing classification loss.
+
+            label_org = self.to_categorical(label_org, self.c_dim)
+            label_trg = self.to_categorical(label_trg, self.c_dim)
+
             #print(label_trg)
             c_org = label_org.clone()				#Actual labels from list_attr_celeb.txt
             c_trg = label_trg.clone()				#Batch size(16) generated random labels
@@ -273,7 +288,7 @@ class Solver(object):
             # Compute loss with fake images.
             x_fake = self.G(x_real, c_trg)
             out_src, out_cls = self.D(x_fake.detach())
-            d_loss_fake = torch.mean(xxxxxxxxxxx)    			# pRINT THIS AND CHECK
+            d_loss_fake = torch.mean(out_src)    			# pRINT THIS AND CHECK
 
             # Compute loss for gradient penalty.
             alpha = torch.rand(x_real.size(0), 1, 1, 1).to(self.device)
