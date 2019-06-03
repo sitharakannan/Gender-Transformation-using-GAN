@@ -21,4 +21,6 @@ python3 main.py
 ```
 
 Result:
+
+
 ![](Images/147000-images.jpg)
